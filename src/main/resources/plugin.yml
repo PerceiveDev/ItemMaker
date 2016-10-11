@@ -1,0 +1,11 @@
+main: com.perceivedev.itemmaker.ItemMaker
+name: ItemMaker
+version: 1.0
+description: A plugin which allows various editing of items
+author: [Rayzr]
+commands:
+ itemmaker:
+   description: ItemMaker main command
+   aliases: [im]
+   usage: "/itemmaker [subcommand]"
+   permission: ItemMaker.main
