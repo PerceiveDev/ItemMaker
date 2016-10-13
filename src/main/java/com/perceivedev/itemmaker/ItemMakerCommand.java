@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -48,7 +47,7 @@ public class ItemMakerCommand implements CommandExecutor {
     public ItemMakerCommand(ItemMaker plugin) {
         this.plugin = plugin;
         cf = new ConversationFactory(plugin)
-                .thatExcludesNonPlayersWithMessage(ChatColor.RED + "Only players can do this!")
+                .thatExcludesNonPlayersWithMessage(plugin.tr("only players"))
                 .withPrefix(ctx -> TextUtils.colorize(plugin.tr("prefix") + " "))
                 .withModality(true)
                 .withLocalEcho(false)
@@ -72,7 +71,7 @@ public class ItemMakerCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage(ChatColor.RED + "You have to be a player to use this command!");
+            sender.sendMessage(plugin.tr("only players"));
             return true;
         }
 
@@ -104,7 +103,7 @@ public class ItemMakerCommand implements CommandExecutor {
      * @param player who to show the help too
      */
     private void showHelp(Player player) {
-        msg(player, "&7You are running &bItemMaker v1.0", "&7Do &b/itemmaker help &7to see all available subcommands");
+        msg(player, plugin.tr("version info", plugin.versionText()), plugin.tr("do help"));
     }
 
     /***
@@ -249,7 +248,7 @@ public class ItemMakerCommand implements CommandExecutor {
         }
 
         if (operation < 0 || operation > 2) {
-            msg(player, "&7Please enter a valid number for the operation! (0, 1 or 2)");
+            msg(player, plugin.tr("invalid param", "operation", "number (0, 1 or 2)"));
             return false;
         }
 
@@ -257,7 +256,7 @@ public class ItemMakerCommand implements CommandExecutor {
         try {
             amount = Integer.parseInt(args[2]);
         } catch (NumberFormatException e) {
-            msg(player, "&7Please enter a valid number for the amount!");
+            msg(player, plugin.tr("invalid param", "amount", "number"));
             return false;
         }
 
@@ -288,6 +287,8 @@ public class ItemMakerCommand implements CommandExecutor {
 
         player.getInventory().setItemInMainHand(item);
 
+        msg(player, plugin.tr("value set", "Attribute " + attributeName, amount + " by operation " + operation));
+
         return true;
 
     }
@@ -296,7 +297,7 @@ public class ItemMakerCommand implements CommandExecutor {
     public boolean removeAttribute(Player player, String[] args) {
 
         if (args.length < 1) {
-            msg(player, "&7You need to provide an &battribute name&7!");
+            msg(player, plugin.tr("missing args"));
             return false;
         }
 
@@ -316,7 +317,7 @@ public class ItemMakerCommand implements CommandExecutor {
         NBTTagList modifierList;
 
         if (!tag.hasKey("AttributeModifiers")) {
-            msg(player, "&7This item has no attributes!");
+            msg(player, plugin.tr("no attributes"));
             return false;
         }
 
@@ -368,12 +369,12 @@ public class ItemMakerCommand implements CommandExecutor {
         Player p = (Player) ctx.getForWhom();
 
         if (!getHand(p).equals(ctx.getSessionData("item"))) {
-            msg(p, "&7You must be holding the same item as you started with!");
+            msg(p, plugin.tr("needs same item"));
             return;
         }
 
         p.getInventory().setItemInMainHand(ItemUtils.setLore(getHand(p), (List<String>) ctx.getSessionData("lore")));
-        msg(p, "&7Lore set");
+        msg(p, plugin.tr("lore set"));
 
     }
 

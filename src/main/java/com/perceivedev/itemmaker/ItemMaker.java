@@ -20,8 +20,6 @@ public class ItemMaker extends JavaPlugin {
     public void onEnable() {
         logger = getLogger();
 
-        getCommand("itemmaker").setExecutor(new ItemMakerCommand(this));
-
         Path output = getDataFolder().toPath().resolve("language");
 
         if (Files.notExists(output)) {
@@ -35,6 +33,8 @@ public class ItemMaker extends JavaPlugin {
         I18N.copyDefaultFiles("language", output, false, getFile());
 
         language = new I18N(this, "language");
+
+        getCommand("itemmaker").setExecutor(new ItemMakerCommand(this));
 
         logger.info(versionText() + " enabled");
 
