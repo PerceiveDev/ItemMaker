@@ -63,4 +63,12 @@ public class ItemMaker extends JavaPlugin {
         return instance;
     }
 
+    /**
+     * @param string
+     * @return
+     */
+    public String tr(String key, Object... formattingObjects) {
+        return language.tr(key, formattingObjects);
+    }
+
 }

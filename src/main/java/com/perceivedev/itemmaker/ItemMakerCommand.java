@@ -5,6 +5,7 @@ package com.perceivedev.itemmaker;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Random;
 
 import org.bukkit.ChatColor;
@@ -12,6 +13,10 @@ import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.conversations.Conversation;
+import org.bukkit.conversations.ConversationAbandonedEvent;
+import org.bukkit.conversations.ConversationContext;
+import org.bukkit.conversations.ConversationFactory;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -35,14 +40,21 @@ public class ItemMakerCommand implements CommandExecutor {
 
     private Random                      rand        = new Random();
 
+    private ConversationFactory         cf;
+
     /**
      * @param plugin the plugin this command is associated with
      */
     public ItemMakerCommand(ItemMaker plugin) {
         this.plugin = plugin;
+        cf = new ConversationFactory(plugin).thatExcludesNonPlayersWithMessage(ChatColor.RED + "Only players can do this!").withPrefix(ctx -> TextUtils.colorize(plugin.tr("prefix")))
+                .withModality(true).addConversationAbandonedListener(this::finishLore);
+
         subCommands.put("help", this::listCommands);
         subCommands.put("name", this::setName);
+        subCommands.put("lore", this::setLore);
         subCommands.put("attribute", this::setAttribute);
+        subCommands.put("removeattr", this::removeAttribute);
         subCommands.put("unbreakable", this::setUnbreakable);
     }
 
@@ -95,7 +107,7 @@ public class ItemMakerCommand implements CommandExecutor {
      * @param sub the sub-command to show
      */
     private void showUsage(Player player, String sub) {
-        msg(player, plugin.getLanguage().tr("subcmd usage for " + sub));
+        msg(player, plugin.tr("subcmd usage for " + sub));
     }
 
     private void msg(Player player, String... msgs) {
@@ -129,6 +141,16 @@ public class ItemMakerCommand implements CommandExecutor {
         return item != null && item.getType() != Material.AIR;
     }
 
+    /**
+     * A reference to Bash :P
+     * 
+     * @param args
+     * @return
+     */
+    public String[] shift(String... args) {
+        return (args.length < 1) ? args : Arrays.copyOfRange(args, 1, args.length);
+    }
+
     // ...////---------------------------------------//
     // ...///---------- BEGIN SUB COMMANDS ---------///
     // ...//---------------------------------------////
@@ -137,20 +159,20 @@ public class ItemMakerCommand implements CommandExecutor {
     public boolean setName(Player player, String[] args) {
 
         if (args.length < 1) {
-            msg(player, "&7You need to provide a name!");
+            msg(player, plugin.tr("missing args"));
             return false;
         }
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, "&7You need to be holding an item!");
+            msg(player, plugin.tr("no item"));
             return false;
         }
 
         String name = TextUtils.colorize("&r" + ArrayUtils.concat(args, " "));
         ItemUtils.setName(item, name);
 
-        msg(player, "&7Item name set to \"&r" + name + "&7\"");
+        msg(player, plugin.tr("name set", name));
 
         return true;
 
@@ -160,13 +182,13 @@ public class ItemMakerCommand implements CommandExecutor {
     public boolean setUnbreakable(Player player, String[] args) {
 
         if (args.length < 1) {
-            msg(player, "&7You need to specify whether or not to make it &bunbreakable&7!");
+            msg(player, plugin.tr("missing args"));
             return false;
         }
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, "&7You need to be holding an item!");
+            msg(player, plugin.tr("no item"));
             return false;
         }
 
@@ -175,10 +197,8 @@ public class ItemMakerCommand implements CommandExecutor {
         boolean input = parseInput(args[0]);
 
         if (input) {
-            System.out.println("Set unbreakable to true");
             tag.setBoolean("Unbreakable", input);
         } else if (tag.hasKeyOfType("Unbreakable", NBTTagByte.class)) {
-            System.out.println("Removed unbreakable");
             tag.remove("Unbreakable");
         }
 
@@ -186,7 +206,7 @@ public class ItemMakerCommand implements CommandExecutor {
 
         player.getInventory().setItemInMainHand(item);
 
-        msg(player, "&7Unbreakable set to &b" + input);
+        msg(player, plugin.tr("value set", "Unbreakable", input));
 
         return true;
 
@@ -196,7 +216,7 @@ public class ItemMakerCommand implements CommandExecutor {
     public boolean setAttribute(Player player, String[] args) {
 
         if (args.length < 3) {
-            msg(player, "&7You need to provide an &battribute name&7, an &boperation (0, 1 or 2)&7 and a &bvalue&7!");
+            msg(player, plugin.tr("missing args"));
             return false;
         }
 
@@ -208,7 +228,7 @@ public class ItemMakerCommand implements CommandExecutor {
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, "&7You need to be holding an item!");
+            msg(player, plugin.tr("no item"));
             return false;
         }
 
@@ -260,7 +280,48 @@ public class ItemMakerCommand implements CommandExecutor {
 
         tag.set("AttributeModifiers", modifierList);
 
-        System.out.println(tag.toString());
+        item = ItemNBTUtil.setNBTTag(tag, item);
+
+        player.getInventory().setItemInMainHand(item);
+
+        return true;
+
+    }
+
+    // Remove item attributes
+    public boolean removeAttribute(Player player, String[] args) {
+
+        if (args.length < 1) {
+            msg(player, "&7You need to provide an &battribute name&7!");
+            return false;
+        }
+
+        ItemStack item = getHand(player);
+        if (!checkItem(item)) {
+            msg(player, "&7You need to be holding an item!");
+            return false;
+        }
+
+        String attributeName = args[0];
+        if (attributeName.indexOf(".") < 0) {
+            attributeName = "generic." + attributeName;
+        }
+
+        NBTTagCompound tag = ItemNBTUtil.getTag(item);
+
+        NBTTagList modifierList;
+
+        if (!tag.hasKey("AttributeModifiers")) {
+            msg(player, "&7This item has no attributes!");
+            return false;
+        }
+
+        modifierList = (NBTTagList) tag.get("AttributeModifiers");
+
+        // TODO: Waiting for @i_al_istannen....
+        // modifierList.remove(some stuff)
+
+        tag.set("AttributeModifiers", modifierList);
 
         item = ItemNBTUtil.setNBTTag(tag, item);
 
@@ -270,14 +331,45 @@ public class ItemMakerCommand implements CommandExecutor {
 
     }
 
-    /**
-     * A reference to Bash :P
-     * 
-     * @param args
-     * @return
-     */
-    public String[] shift(String... args) {
-        return (args.length < 1) ? args : Arrays.copyOfRange(args, 1, args.length);
+    public boolean setLore(Player player, String[] args) {
+
+        ItemStack item = getHand(player);
+        if (!checkItem(item)) {
+            msg(player, "&7You need to be holding an item!");
+            return false;
+        }
+
+        Conversation conv = cf.buildConversation(player);
+        conv.getContext().setSessionData("item", item);
+
+        return true;
+
+    }
+
+    @SuppressWarnings("unchecked")
+    public void finishLore(ConversationAbandonedEvent e) {
+
+        if (!e.gracefulExit()) {
+            // Something went wrong :P
+            return;
+        }
+
+        ConversationContext ctx = e.getContext();
+        if (!(ctx.getForWhom() instanceof Player)) {
+            // What the heck? They should be a player...
+            return;
+        }
+
+        Player p = (Player) ctx.getForWhom();
+
+        if (!getHand(p).equals(ctx.getSessionData("item"))) {
+            msg(p, "&7You must be holding the same item as you started with!");
+            return;
+        }
+
+        p.getInventory().setItemInMainHand(ItemUtils.setLore(getHand(p), (List<String>) ctx.getSessionData("lore")));
+        msg(p, "&7Lore set");
+
     }
 
 }
