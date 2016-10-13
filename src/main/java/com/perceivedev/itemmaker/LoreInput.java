@@ -8,6 +8,7 @@ import static com.perceivedev.perceivecore.util.TextUtils.colorize;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.bukkit.ChatColor;
 import org.bukkit.conversations.ConversationContext;
 import org.bukkit.conversations.Prompt;
 import org.bukkit.conversations.StringPrompt;
@@ -52,8 +53,13 @@ public class LoreInput extends StringPrompt {
             context.setSessionData("lore", lore);
             return null;
         } else {
-            lastInput = TextUtils.colorize(input);
-            lore.add(lastInput);
+            lastInput = TextUtils.colorize(input.trim());
+            if (lastInput.equals("\\n")) {
+                lore.add("");
+                lastInput = "&o&lEmpty";
+            } else {
+                lore.add(ChatColor.RESET + lastInput);
+            }
         }
 
         return this;

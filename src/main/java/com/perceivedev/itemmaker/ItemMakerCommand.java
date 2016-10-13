@@ -47,8 +47,12 @@ public class ItemMakerCommand implements CommandExecutor {
      */
     public ItemMakerCommand(ItemMaker plugin) {
         this.plugin = plugin;
-        cf = new ConversationFactory(plugin).thatExcludesNonPlayersWithMessage(ChatColor.RED + "Only players can do this!").withPrefix(ctx -> TextUtils.colorize(plugin.tr("prefix")))
-                .withModality(true).addConversationAbandonedListener(this::finishLore);
+        cf = new ConversationFactory(plugin)
+                .thatExcludesNonPlayersWithMessage(ChatColor.RED + "Only players can do this!")
+                .withPrefix(ctx -> TextUtils.colorize(plugin.tr("prefix") + " "))
+                .withModality(true)
+                .withLocalEcho(false)
+                .addConversationAbandonedListener(this::finishLore);
 
         subCommands.put("help", this::listCommands);
         subCommands.put("name", this::setName);
@@ -298,7 +302,7 @@ public class ItemMakerCommand implements CommandExecutor {
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, "&7You need to be holding an item!");
+            msg(player, plugin.tr("no item"));
             return false;
         }
 
@@ -335,12 +339,13 @@ public class ItemMakerCommand implements CommandExecutor {
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, "&7You need to be holding an item!");
+            msg(player, plugin.tr("no item"));
             return false;
         }
 
-        Conversation conv = cf.buildConversation(player);
+        Conversation conv = cf.withFirstPrompt(new LoreInput()).buildConversation(player);
         conv.getContext().setSessionData("item", item);
+        conv.begin();
 
         return true;
 
