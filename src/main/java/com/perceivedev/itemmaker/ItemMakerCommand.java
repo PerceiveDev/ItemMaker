@@ -6,6 +6,7 @@ package com.perceivedev.itemmaker;
 import static com.perceivedev.perceivecore.util.ArrayUtils.concat;
 import static com.perceivedev.perceivecore.util.TextUtils.colorize;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -30,8 +31,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 import com.perceivedev.perceivecore.nbt.ItemNBTUtil;
 import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagByte;
 import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagCompound;
+import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagInt;
 import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagList;
-import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagString;
 import com.perceivedev.perceivecore.util.ItemUtils;
 import com.perceivedev.perceivecore.util.TextUtils;
 
@@ -67,7 +68,7 @@ public class ItemMakerCommand implements CommandExecutor {
         subCommands.put("name", this::setName);
         subCommands.put("lore", this::setLore);
         subCommands.put("attribute", this::setAttribute);
-        subCommands.put("removeattr", this::removeAttribute);
+        // subCommands.put("removeattr", this::removeAttribute);
         subCommands.put("unbreakable", this::setUnbreakable);
         subCommands.put("flags", this::hideFlags);
     }
@@ -165,6 +166,29 @@ public class ItemMakerCommand implements CommandExecutor {
         return (args.length < 1) ? args : Arrays.copyOfRange(args, 1, args.length);
     }
 
+    private Optional<NBTTagCompound> findAttribute(String attributeName, NBTTagList modifierList) {
+        return findAttribute(attributeName, -1, null, modifierList);
+    }
+
+    private Optional<NBTTagCompound> findAttribute(String attributeName, int operation, String slot, NBTTagList modifierList) {
+        // @formatter:off
+        Optional<NBTTagCompound> tag2 = modifierList
+                .getList()
+                .stream()
+                .filter(o -> {System.out.println("Checking..."); return o instanceof NBTTagCompound;})
+                .map(o -> (NBTTagCompound) o)
+                .filter(o -> {
+                    boolean nameCheck = attributeName.equals(o.getString("AttributeName"));
+                    boolean operationCheck = operation < 0 || (o.hasKeyOfType("Operation", NBTTagInt.class) && operation == o.getInt("Operation"));
+                    boolean slotCheck = slot == null || slot.equals(o.getString("Slot"));
+                    System.out.println(o.hasKeyOfType("Operation", NBTTagInt.class) + ", " + (operation == o.getInt("Operation")) + ", " + o.getInt("Operation"));
+                    System.out.println(nameCheck + ", " + operationCheck + ", " + slotCheck);
+                    return nameCheck && operationCheck && slotCheck;
+        }).findFirst();
+        // @formatter:on
+        return tag2;
+    }
+
     ////////////////////////////////////////
     // ---------------------------------- //
     // ------- BEGIN SUB COMMANDS ------- //
@@ -238,6 +262,10 @@ public class ItemMakerCommand implements CommandExecutor {
     public boolean setAttribute(Player player, String[] args) {
 
         if (args.length < 3) {
+            if (args.length == 2 && args[1].equalsIgnoreCase("remove")) {
+                String attributeName = args[0].indexOf(".") < 0 ? "generic." + args[0] : args[0];
+                return removeAttribute(player, attributeName);
+            }
             msg(player, plugin.tr("missing.args"));
             return false;
         }
@@ -268,11 +296,11 @@ public class ItemMakerCommand implements CommandExecutor {
             return false;
         }
 
-        int amount = -1;
+        double amount = -1.0;
         try {
-            amount = Integer.parseInt(args[2]);
+            amount = Double.parseDouble(args[2]);
         } catch (NumberFormatException e) {
-            msg(player, plugin.tr("invalid.param", "amount", "number"));
+            msg(player, plugin.tr("invalid.param", "amount", "decimal number"));
             return false;
         }
 
@@ -284,16 +312,27 @@ public class ItemMakerCommand implements CommandExecutor {
             modifierList = (NBTTagList) tag.get("AttributeModifiers");
         }
 
-        NBTTagCompound attr = new NBTTagCompound();
-        attr.setString("AttributeName", attributeName);
-        attr.setString("Name", attributeName);
-        attr.setInt("Amount", amount);
-        attr.setInt("Operation", 0);
-        attr.setInt("UUIDMost", rand.nextInt(999999999));
-        attr.setInt("UUIDLeast", rand.nextInt(999999999));
-        if (slot != null) {
-            attr.setString("Slot", slot);
+        Optional<NBTTagCompound> old = findAttribute(attributeName, operation, slot, modifierList);
+        NBTTagCompound attr;
+
+        if (old.isPresent()) {
+            attr = old.get();
+            modifierList.remove(attr);
+            System.out.println("Old one found");
+        } else {
+            System.out.println("Creating new tag...");
+            attr = new NBTTagCompound();
+            attr.setString("AttributeName", attributeName);
+            attr.setString("Name", attributeName);
+            attr.setInt("UUIDMost", rand.nextInt(999999999));
+            attr.setInt("UUIDLeast", rand.nextInt(999999999));
+            attr.setInt("Operation", operation);
+            if (slot != null) {
+                attr.setString("Slot", slot);
+            }
         }
+
+        attr.setDouble("Amount", amount);
 
         modifierList.add(attr);
 
@@ -309,23 +348,14 @@ public class ItemMakerCommand implements CommandExecutor {
 
     }
 
-    // ---------------------------------- //
-    // --- Remove Attributes commands --- //
-    // ---------------------------------- //
-    public boolean removeAttribute(Player player, String[] args) {
-
-        if (args.length < 1) {
-            msg(player, plugin.tr("missing.args"));
-            return false;
-        }
+    // Originally was a separate command, but it's now just a utility method
+    public boolean removeAttribute(Player player, String attributeName) {
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
             msg(player, plugin.tr("no.item"));
             return false;
         }
-
-        String attributeName = args[0].indexOf(".") < 0 ? "generic." + args[0] : args[0];
 
         NBTTagCompound tag = ItemNBTUtil.getTag(item);
 
@@ -338,17 +368,7 @@ public class ItemMakerCommand implements CommandExecutor {
 
         modifierList = (NBTTagList) tag.get("AttributeModifiers");
 
-        // @i_al_istannen: I found a way to deal with the stupidity of the
-        // differences between our formatter profiles! Yay!
-        // @formatter:off
-        Optional<NBTTagCompound> tag2 = modifierList
-                .getList()
-                .stream()
-                .filter(o -> o instanceof NBTTagCompound)
-                .map(o -> (NBTTagCompound) o)
-                .filter(o -> o.hasKeyOfType("AttributeName", NBTTagString.class) && o.getString("AttributeName").equals(attributeName))
-                .findFirst();
-        // @formatter:on
+        Optional<NBTTagCompound> tag2 = findAttribute(attributeName, modifierList);
 
         if (!tag2.isPresent()) {
             msg(player, plugin.tr("attribute.not.present", attributeName));
@@ -397,11 +417,16 @@ public class ItemMakerCommand implements CommandExecutor {
             if (args[0].equalsIgnoreCase("add")) {
                 args = shift(args);
                 String line = colorize(concat(args, " "));
-                if (ItemUtils.getLore(item) == null) {
-                    ItemUtils.setLore(item, Arrays.asList(ChatColor.RESET + line));
+                ItemMeta im = item.getItemMeta();
+                List<String> lore = im.hasLore() ? im.getLore() : new ArrayList<String>();
+                if (line.equals("\\n")) {
+                    lore.add("");
+                    line = plugin.tr("prompt.lore.empty");
                 } else {
-                    ItemUtils.addLore(item, Arrays.asList(ChatColor.RESET + line));
+                    lore.add(ChatColor.RESET + line);
                 }
+                im.setLore(lore);
+                item.setItemMeta(im);
                 msg(player, plugin.tr("lore.line.added", line));
                 return true;
             }
@@ -434,6 +459,8 @@ public class ItemMakerCommand implements CommandExecutor {
             if (args.length == 1) {
                 if (args[0].equalsIgnoreCase("remove")) {
                     lore.remove(lineNum - 1);
+                    im.setLore(lore);
+                    item.setItemMeta(im);
                     msg(player, plugin.tr("lore.line.removed", lineNum));
                     return true;
                 }
@@ -441,11 +468,11 @@ public class ItemMakerCommand implements CommandExecutor {
 
             String line = colorize(concat(args, " ").trim());
 
-            if (lore.equals("\\n")) {
+            if (line.equals("\\n")) {
                 lore.set(lineNum - 1, "");
+                line = plugin.tr("prompt.lore.empty");
             } else {
                 lore.set(lineNum - 1, ChatColor.RESET + line);
-                line = plugin.tr("prompt.lore.empty");
             }
 
             im.setLore(lore);
@@ -498,17 +525,17 @@ public class ItemMakerCommand implements CommandExecutor {
         String action = "";
         if (arg.equals("add")) {
             action = "added";
-            ItemFlag[] actual = flags.stream().filter(flag -> im.hasItemFlag(flag)).collect(Collectors.toList()).toArray(new ItemFlag[0]);
-            System.out.println("Adding, actual.length = " + actual.length);
-            im.addItemFlags(actual);
+            flags = flags.stream().filter(flag -> !im.hasItemFlag(flag)).collect(Collectors.toList());
+            im.addItemFlags(flags.toArray(new ItemFlag[flags.size()]));
         } else if (arg.equals("remove")) {
             action = "removed";
-            ItemFlag[] actual = flags.stream().filter(flag -> im.hasItemFlag(flag)).collect(Collectors.toList()).toArray(new ItemFlag[0]);
-            System.out.println("Adding, actual.length = " + actual.length);
-            im.removeItemFlags(actual);
+            flags = flags.stream().filter(flag -> im.hasItemFlag(flag)).collect(Collectors.toList());
+            im.removeItemFlags(flags.toArray(new ItemFlag[flags.size()]));
         } else {
             return false;
         }
+
+        item.setItemMeta(im);
 
         msg(player, plugin.tr("flags", action, flags.stream().map(flag -> flag.toString()).sorted().collect(Collectors.joining(", "))));
 
