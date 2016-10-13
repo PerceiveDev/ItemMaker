@@ -47,7 +47,7 @@ public class ItemMakerCommand implements CommandExecutor {
     public ItemMakerCommand(ItemMaker plugin) {
         this.plugin = plugin;
         cf = new ConversationFactory(plugin)
-                .thatExcludesNonPlayersWithMessage(plugin.tr("only players"))
+                .thatExcludesNonPlayersWithMessage(plugin.tr("only.players"))
                 .withPrefix(ctx -> TextUtils.colorize(plugin.tr("prefix") + " "))
                 .withModality(true)
                 .withLocalEcho(false)
@@ -71,7 +71,7 @@ public class ItemMakerCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage(plugin.tr("only players"));
+            sender.sendMessage(plugin.tr("only.players"));
             return true;
         }
 
@@ -103,14 +103,14 @@ public class ItemMakerCommand implements CommandExecutor {
      * @param player who to show the help too
      */
     private void showHelp(Player player) {
-        msg(player, plugin.tr("version info", plugin.versionText()), plugin.tr("do help"));
+        msg(player, plugin.tr("version.info", plugin.versionText()), plugin.tr("do.help"));
     }
 
     /***
      * @param sub the sub-command to show
      */
     private void showUsage(Player player, String sub) {
-        msg(player, plugin.tr("subcmd usage for " + sub));
+        msg(player, plugin.tr("subcmd.usage.for." + sub));
     }
 
     private void msg(Player player, String... msgs) {
@@ -162,20 +162,20 @@ public class ItemMakerCommand implements CommandExecutor {
     public boolean setName(Player player, String[] args) {
 
         if (args.length < 1) {
-            msg(player, plugin.tr("missing args"));
+            msg(player, plugin.tr("missing.args"));
             return false;
         }
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, plugin.tr("no item"));
+            msg(player, plugin.tr("no.item"));
             return false;
         }
 
         String name = TextUtils.colorize("&r" + ArrayUtils.concat(args, " "));
         ItemUtils.setName(item, name);
 
-        msg(player, plugin.tr("name set", name));
+        msg(player, plugin.tr("name.set", name));
 
         return true;
 
@@ -185,13 +185,13 @@ public class ItemMakerCommand implements CommandExecutor {
     public boolean setUnbreakable(Player player, String[] args) {
 
         if (args.length < 1) {
-            msg(player, plugin.tr("missing args"));
+            msg(player, plugin.tr("missing.args"));
             return false;
         }
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, plugin.tr("no item"));
+            msg(player, plugin.tr("no.item"));
             return false;
         }
 
@@ -209,7 +209,7 @@ public class ItemMakerCommand implements CommandExecutor {
 
         player.getInventory().setItemInMainHand(item);
 
-        msg(player, plugin.tr("value set", "Unbreakable", input));
+        msg(player, plugin.tr("value.set", "Unbreakable", input));
 
         return true;
 
@@ -219,7 +219,7 @@ public class ItemMakerCommand implements CommandExecutor {
     public boolean setAttribute(Player player, String[] args) {
 
         if (args.length < 3) {
-            msg(player, plugin.tr("missing args"));
+            msg(player, plugin.tr("missing.args"));
             return false;
         }
 
@@ -231,7 +231,7 @@ public class ItemMakerCommand implements CommandExecutor {
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, plugin.tr("no item"));
+            msg(player, plugin.tr("no.item"));
             return false;
         }
 
@@ -248,7 +248,7 @@ public class ItemMakerCommand implements CommandExecutor {
         }
 
         if (operation < 0 || operation > 2) {
-            msg(player, plugin.tr("invalid param", "operation", "number (0, 1 or 2)"));
+            msg(player, plugin.tr("invalid.param", "operation", "number (0, 1 or 2)"));
             return false;
         }
 
@@ -256,7 +256,7 @@ public class ItemMakerCommand implements CommandExecutor {
         try {
             amount = Integer.parseInt(args[2]);
         } catch (NumberFormatException e) {
-            msg(player, plugin.tr("invalid param", "amount", "number"));
+            msg(player, plugin.tr("invalid.param", "amount", "number"));
             return false;
         }
 
@@ -287,7 +287,7 @@ public class ItemMakerCommand implements CommandExecutor {
 
         player.getInventory().setItemInMainHand(item);
 
-        msg(player, plugin.tr("value set", "Attribute " + attributeName, amount + " by operation " + operation));
+        msg(player, plugin.tr("value.set", "Attribute " + attributeName, amount + " by operation " + operation));
 
         return true;
 
@@ -297,13 +297,13 @@ public class ItemMakerCommand implements CommandExecutor {
     public boolean removeAttribute(Player player, String[] args) {
 
         if (args.length < 1) {
-            msg(player, plugin.tr("missing args"));
+            msg(player, plugin.tr("missing.args"));
             return false;
         }
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, plugin.tr("no item"));
+            msg(player, plugin.tr("no.item"));
             return false;
         }
 
@@ -317,7 +317,7 @@ public class ItemMakerCommand implements CommandExecutor {
         NBTTagList modifierList;
 
         if (!tag.hasKey("AttributeModifiers")) {
-            msg(player, plugin.tr("no attributes"));
+            msg(player, plugin.tr("no.attributes"));
             return false;
         }
 
@@ -340,7 +340,7 @@ public class ItemMakerCommand implements CommandExecutor {
 
         ItemStack item = getHand(player);
         if (!checkItem(item)) {
-            msg(player, plugin.tr("no item"));
+            msg(player, plugin.tr("no.item"));
             return false;
         }
 
@@ -369,12 +369,12 @@ public class ItemMakerCommand implements CommandExecutor {
         Player p = (Player) ctx.getForWhom();
 
         if (!getHand(p).equals(ctx.getSessionData("item"))) {
-            msg(p, plugin.tr("needs same item"));
+            msg(p, plugin.tr("needs.same.item"));
             return;
         }
 
         p.getInventory().setItemInMainHand(ItemUtils.setLore(getHand(p), (List<String>) ctx.getSessionData("lore")));
-        msg(p, plugin.tr("lore set"));
+        msg(p, plugin.tr("lore.set"));
 
     }
 
