@@ -8,6 +8,7 @@ import java.util.logging.Logger;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.perceivedev.perceivecore.language.I18N;
+import com.perceivedev.perceivecore.util.TextUtils;
 
 public class ItemMaker extends JavaPlugin {
 
@@ -68,7 +69,7 @@ public class ItemMaker extends JavaPlugin {
      * @return
      */
     public String tr(String key, Object... formattingObjects) {
-        return language.tr(key, formattingObjects);
+        return TextUtils.colorize(language.tr(key, formattingObjects));
     }
 
 }

@@ -3,11 +3,17 @@
  */
 package com.perceivedev.itemmaker;
 
+import static com.perceivedev.perceivecore.util.ArrayUtils.concat;
+import static com.perceivedev.perceivecore.util.TextUtils.colorize;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Collectors;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -17,13 +23,15 @@ import org.bukkit.conversations.ConversationAbandonedEvent;
 import org.bukkit.conversations.ConversationContext;
 import org.bukkit.conversations.ConversationFactory;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import com.perceivedev.perceivecore.nbt.ItemNBTUtil;
 import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagByte;
 import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagCompound;
 import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagList;
-import com.perceivedev.perceivecore.util.ArrayUtils;
+import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagString;
 import com.perceivedev.perceivecore.util.ItemUtils;
 import com.perceivedev.perceivecore.util.TextUtils;
 
@@ -46,12 +54,14 @@ public class ItemMakerCommand implements CommandExecutor {
      */
     public ItemMakerCommand(ItemMaker plugin) {
         this.plugin = plugin;
+        // @formatter:off
         cf = new ConversationFactory(plugin)
                 .thatExcludesNonPlayersWithMessage(plugin.tr("only.players"))
-                .withPrefix(ctx -> TextUtils.colorize(plugin.tr("prefix") + " "))
+                .withPrefix(ctx -> plugin.tr("prefix") + " ")
                 .withModality(true)
                 .withLocalEcho(false)
                 .addConversationAbandonedListener(this::finishLore);
+        // @formatter:on
 
         subCommands.put("help", this::listCommands);
         subCommands.put("name", this::setName);
@@ -59,6 +69,7 @@ public class ItemMakerCommand implements CommandExecutor {
         subCommands.put("attribute", this::setAttribute);
         subCommands.put("removeattr", this::removeAttribute);
         subCommands.put("unbreakable", this::setUnbreakable);
+        subCommands.put("flags", this::hideFlags);
     }
 
     /*
@@ -114,11 +125,11 @@ public class ItemMakerCommand implements CommandExecutor {
     }
 
     private void msg(Player player, String... msgs) {
-        Arrays.stream(msgs).forEach(msg -> player.sendMessage(TextUtils.colorize(msg)));
+        Arrays.stream(msgs).forEach(msg -> player.sendMessage(colorize(msg)));
     }
 
     public boolean listCommands(Player player, String[] args) {
-        subCommands.keySet().stream().forEach(label -> showUsage(player, label));
+        subCommands.keySet().stream().sorted().forEach(label -> showUsage(player, label));
         return true;
     }
 
@@ -154,11 +165,15 @@ public class ItemMakerCommand implements CommandExecutor {
         return (args.length < 1) ? args : Arrays.copyOfRange(args, 1, args.length);
     }
 
-    // ...////---------------------------------------//
-    // ...///---------- BEGIN SUB COMMANDS ---------///
-    // ...//---------------------------------------////
+    ////////////////////////////////////////
+    // ---------------------------------- //
+    // ------- BEGIN SUB COMMANDS ------- //
+    // ---------------------------------- //
+    ////////////////////////////////////////
 
-    // Set item name
+    // ---------------------------------- //
+    // -------- Set Name command -------- //
+    // ---------------------------------- //
     public boolean setName(Player player, String[] args) {
 
         if (args.length < 1) {
@@ -172,7 +187,7 @@ public class ItemMakerCommand implements CommandExecutor {
             return false;
         }
 
-        String name = TextUtils.colorize("&r" + ArrayUtils.concat(args, " "));
+        String name = colorize("&r" + concat(args, " "));
         ItemUtils.setName(item, name);
 
         msg(player, plugin.tr("name.set", name));
@@ -181,7 +196,9 @@ public class ItemMakerCommand implements CommandExecutor {
 
     }
 
-    // Set item unbreakable
+    // ---------------------------------- //
+    // --- Toggle Unbreakable command --- //
+    // ---------------------------------- //
     public boolean setUnbreakable(Player player, String[] args) {
 
         if (args.length < 1) {
@@ -215,7 +232,9 @@ public class ItemMakerCommand implements CommandExecutor {
 
     }
 
-    // Set item attributes
+    // ---------------------------------- //
+    // ----- Add Attributes command ----- //
+    // ---------------------------------- //
     public boolean setAttribute(Player player, String[] args) {
 
         if (args.length < 3) {
@@ -235,10 +254,7 @@ public class ItemMakerCommand implements CommandExecutor {
             return false;
         }
 
-        String attributeName = args[0];
-        if (attributeName.indexOf(".") < 0) {
-            attributeName = "generic." + attributeName;
-        }
+        String attributeName = args[0].indexOf(".") < 0 ? "generic." + args[0] : args[0];
 
         int operation = 0;
         try {
@@ -287,13 +303,15 @@ public class ItemMakerCommand implements CommandExecutor {
 
         player.getInventory().setItemInMainHand(item);
 
-        msg(player, plugin.tr("value.set", "Attribute " + attributeName, amount + " by operation " + operation));
+        msg(player, plugin.tr("attribute.set", attributeName, amount, operation));
 
         return true;
 
     }
 
-    // Remove item attributes
+    // ---------------------------------- //
+    // --- Remove Attributes commands --- //
+    // ---------------------------------- //
     public boolean removeAttribute(Player player, String[] args) {
 
         if (args.length < 1) {
@@ -307,10 +325,7 @@ public class ItemMakerCommand implements CommandExecutor {
             return false;
         }
 
-        String attributeName = args[0];
-        if (attributeName.indexOf(".") < 0) {
-            attributeName = "generic." + attributeName;
-        }
+        String attributeName = args[0].indexOf(".") < 0 ? "generic." + args[0] : args[0];
 
         NBTTagCompound tag = ItemNBTUtil.getTag(item);
 
@@ -323,8 +338,27 @@ public class ItemMakerCommand implements CommandExecutor {
 
         modifierList = (NBTTagList) tag.get("AttributeModifiers");
 
-        // TODO: Waiting for @i_al_istannen....
-        // modifierList.remove(some stuff)
+        // @i_al_istannen: I found a way to deal with the stupidity of the
+        // differences between our formatter profiles! Yay!
+        // @formatter:off
+        Optional<NBTTagCompound> tag2 = modifierList
+                .getList()
+                .stream()
+                .filter(o -> o instanceof NBTTagCompound)
+                .map(o -> (NBTTagCompound) o)
+                .filter(o -> o.hasKeyOfType("AttributeName", NBTTagString.class) && o.getString("AttributeName").equals(attributeName))
+                .findFirst();
+        // @formatter:on
+
+        if (!tag2.isPresent()) {
+            msg(player, plugin.tr("attribute.not.present", attributeName));
+            return false;
+        }
+
+        if (!modifierList.remove(tag2.get())) {
+            msg(player, plugin.tr("error", "ItemMakerCommand#removeAttribute failed to remove tag from modifierList!"));
+            return false;
+        }
 
         tag.set("AttributeModifiers", modifierList);
 
@@ -332,10 +366,25 @@ public class ItemMakerCommand implements CommandExecutor {
 
         player.getInventory().setItemInMainHand(item);
 
+        msg(player, plugin.tr("attribute.removed", attributeName));
+
         return true;
 
     }
 
+    // ---------------------------------- //
+    // ---------- Lore command ---------- //
+    // ---------------------------------- //
+    // I know this method is really ugly, //
+    // but I don't know any better way to //
+    // implement setting, changing, *and* //
+    // removing in one command. YAY!! @w@ //
+    // ---------------------------------- //
+    // After writing the above note I did //
+    // end up adding `add` functionality, //
+    // so now it is even more complicated //
+    // than it was. Why do I do this?!?!? //
+    // ---------------------------------- //
     public boolean setLore(Player player, String[] args) {
 
         ItemStack item = getHand(player);
@@ -344,9 +393,124 @@ public class ItemMakerCommand implements CommandExecutor {
             return false;
         }
 
-        Conversation conv = cf.withFirstPrompt(new LoreInput()).buildConversation(player);
-        conv.getContext().setSessionData("item", item);
-        conv.begin();
+        if (args.length >= 2) {
+            if (args[0].equalsIgnoreCase("add")) {
+                args = shift(args);
+                String line = colorize(concat(args, " "));
+                if (ItemUtils.getLore(item) == null) {
+                    ItemUtils.setLore(item, Arrays.asList(ChatColor.RESET + line));
+                } else {
+                    ItemUtils.addLore(item, Arrays.asList(ChatColor.RESET + line));
+                }
+                msg(player, plugin.tr("lore.line.added", line));
+                return true;
+            }
+            int lineNum = -1;
+            try {
+                lineNum = Integer.parseInt(args[0]);
+            } catch (NumberFormatException e) {
+                lineNum = -1;
+            }
+
+            if (lineNum < 1) {
+                msg(player, plugin.tr("invalid.param", "operation", "number >0"));
+                return false;
+            }
+
+            ItemMeta im = item.getItemMeta();
+            if (!im.hasLore()) {
+                msg(player, plugin.tr("no.lore"));
+                return true;
+            }
+
+            List<String> lore = im.getLore();
+            if (lineNum > lore.size()) {
+                msg(player, plugin.tr("no.lore.line", lineNum, lore.size()));
+                return false;
+            }
+
+            args = shift(args);
+
+            if (args.length == 1) {
+                if (args[0].equalsIgnoreCase("remove")) {
+                    lore.remove(lineNum - 1);
+                    msg(player, plugin.tr("lore.line.removed", lineNum));
+                    return true;
+                }
+            }
+
+            String line = colorize(concat(args, " ").trim());
+
+            if (lore.equals("\\n")) {
+                lore.set(lineNum - 1, "");
+            } else {
+                lore.set(lineNum - 1, ChatColor.RESET + line);
+                line = plugin.tr("prompt.lore.empty");
+            }
+
+            im.setLore(lore);
+            item.setItemMeta(im);
+            msg(player, plugin.tr("lore.line.set", lineNum, line));
+        } else {
+            Conversation conv = cf.withFirstPrompt(new LoreInput(plugin)).buildConversation(player);
+            conv.getContext().setSessionData("item", item);
+            conv.begin();
+        }
+
+        return true;
+
+    }
+
+    public boolean hideFlags(Player player, String... args) {
+
+        if (args.length < 2) {
+            if (args.length > 0 && args[0].equalsIgnoreCase("list")) {
+                msg(player, plugin.tr("flags.list", Arrays.stream(ItemFlag.values()).map(flag -> flag.toString()).sorted().collect(Collectors.joining(", "))));
+                return true;
+            }
+            msg(player, plugin.tr("missing.args"));
+            return false;
+        }
+
+        ItemStack item = getHand(player);
+        if (!checkItem(item)) {
+            msg(player, plugin.tr("no.item"));
+            return false;
+        }
+        ItemMeta im = item.getItemMeta();
+
+        String arg = args[0].toLowerCase();
+        args = shift(args);
+
+        List<ItemFlag> flags;
+        if (args.length == 1 && args[0].equalsIgnoreCase("all")) {
+            flags = Arrays.asList(ItemFlag.values());
+        } else {
+            flags = Arrays.asList(args).stream().filter(str -> {
+                try {
+                    return ItemFlag.valueOf(TextUtils.enumFormat(str)) != null;
+                } catch (Exception e) {
+                    return false;
+                }
+            }).map(str -> ItemFlag.valueOf(TextUtils.enumFormat(str))).collect(Collectors.toList());
+        }
+
+        String action = "";
+        if (arg.equals("add")) {
+            action = "added";
+            ItemFlag[] actual = flags.stream().filter(flag -> im.hasItemFlag(flag)).collect(Collectors.toList()).toArray(new ItemFlag[0]);
+            System.out.println("Adding, actual.length = " + actual.length);
+            im.addItemFlags(actual);
+        } else if (arg.equals("remove")) {
+            action = "removed";
+            ItemFlag[] actual = flags.stream().filter(flag -> im.hasItemFlag(flag)).collect(Collectors.toList()).toArray(new ItemFlag[0]);
+            System.out.println("Adding, actual.length = " + actual.length);
+            im.removeItemFlags(actual);
+        } else {
+            return false;
+        }
+
+        msg(player, plugin.tr("flags", action, flags.stream().map(flag -> flag.toString()).sorted().collect(Collectors.joining(", "))));
 
         return true;
 

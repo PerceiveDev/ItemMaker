@@ -13,19 +13,20 @@ import org.bukkit.conversations.ConversationContext;
 import org.bukkit.conversations.Prompt;
 import org.bukkit.conversations.StringPrompt;
 
-import com.perceivedev.perceivecore.util.TextUtils;
-
 /**
  * @author Rayzr
  *
  */
 public class LoreInput extends StringPrompt {
 
-    private final String promptFirst = "&7Enter the lines of lore that you want. Use &b\\n &7for a blank line, and &bDONE &7when you have finished.";
-    private final String promptLore  = "&7Lore added: &r";
+    private ItemMaker    plugin;
 
-    private List<String> lore        = new ArrayList<String>();
-    private String       lastInput   = null;
+    private List<String> lore      = new ArrayList<String>();
+    private String       lastInput = null;
+
+    public LoreInput(ItemMaker plugin) {
+        this.plugin = plugin;
+    }
 
     /*
      * (non-Javadoc)
@@ -36,7 +37,7 @@ public class LoreInput extends StringPrompt {
      */
     @Override
     public String getPromptText(ConversationContext context) {
-        return lastInput == null ? colorize(promptFirst) : colorize(promptLore + lastInput);
+        return lastInput == null ? plugin.tr("prompt.first") : plugin.tr("prompt.lore", lastInput);
     }
 
     /*
@@ -53,10 +54,10 @@ public class LoreInput extends StringPrompt {
             context.setSessionData("lore", lore);
             return null;
         } else {
-            lastInput = TextUtils.colorize(input.trim());
+            lastInput = colorize(input.trim());
             if (lastInput.equals("\\n")) {
                 lore.add("");
-                lastInput = "&o&lEmpty";
+                lastInput = plugin.tr("prompt.lore.empty");
             } else {
                 lore.add(ChatColor.RESET + lastInput);
             }
