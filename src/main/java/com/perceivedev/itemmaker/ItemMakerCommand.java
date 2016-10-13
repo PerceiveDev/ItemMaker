@@ -175,15 +175,13 @@ public class ItemMakerCommand implements CommandExecutor {
         Optional<NBTTagCompound> tag2 = modifierList
                 .getList()
                 .stream()
-                .filter(o -> {System.out.println("Checking..."); return o instanceof NBTTagCompound;})
+                .filter(o -> o instanceof NBTTagCompound)
                 .map(o -> (NBTTagCompound) o)
                 .filter(o -> {
-                    boolean nameCheck = attributeName.equals(o.getString("AttributeName"));
-                    boolean operationCheck = operation < 0 || (o.hasKeyOfType("Operation", NBTTagInt.class) && operation == o.getInt("Operation"));
-                    boolean slotCheck = slot == null || slot.equals(o.getString("Slot"));
-                    System.out.println(o.hasKeyOfType("Operation", NBTTagInt.class) + ", " + (operation == o.getInt("Operation")) + ", " + o.getInt("Operation"));
-                    System.out.println(nameCheck + ", " + operationCheck + ", " + slotCheck);
-                    return nameCheck && operationCheck && slotCheck;
+                    boolean check = (attributeName.equals(o.getString("AttributeName")));
+                    check = check && (operation < 0 || (o.hasKeyOfType("Operation", NBTTagInt.class) && operation == o.getInt("Operation")));
+                    check = check && (slot == null || slot.equals(o.getString("Slot")));
+                    return check;
         }).findFirst();
         // @formatter:on
         return tag2;
@@ -318,9 +316,7 @@ public class ItemMakerCommand implements CommandExecutor {
         if (old.isPresent()) {
             attr = old.get();
             modifierList.remove(attr);
-            System.out.println("Old one found");
         } else {
-            System.out.println("Creating new tag...");
             attr = new NBTTagCompound();
             attr.setString("AttributeName", attributeName);
             attr.setString("Name", attributeName);
