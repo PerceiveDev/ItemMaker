@@ -149,6 +149,7 @@ public class ItemMakerCommand implements CommandExecutor {
 
         String name = TextUtils.colorize("&r" + ArrayUtils.concat(args, " "));
         ItemUtils.setName(item, name);
+
         msg(player, "&7Item name set to \"&r" + name + "&7\"");
 
         return true;
@@ -183,6 +184,8 @@ public class ItemMakerCommand implements CommandExecutor {
 
         item = ItemNBTUtil.setNBTTag(tag, item);
 
+        player.getInventory().setItemInMainHand(item);
+
         msg(player, "&7Unbreakable set to &b" + input);
 
         return true;
@@ -192,9 +195,15 @@ public class ItemMakerCommand implements CommandExecutor {
     // Set item attributes
     public boolean setAttribute(Player player, String[] args) {
 
-        if (args.length < 2) {
-            msg(player, "&7You need to provide an &battribute name&7 and a &bvalue&7!");
+        if (args.length < 3) {
+            msg(player, "&7You need to provide an &battribute name&7, an &boperation (0, 1 or 2)&7 and a &bvalue&7!");
             return false;
+        }
+
+        String slot = null;
+
+        if (args.length > 3) {
+            slot = args[3];
         }
 
         ItemStack item = getHand(player);
@@ -208,9 +217,21 @@ public class ItemMakerCommand implements CommandExecutor {
             attributeName = "generic." + attributeName;
         }
 
+        int operation = 0;
+        try {
+            operation = Integer.parseInt(args[1]);
+        } catch (NumberFormatException e) {
+            operation = -1;
+        }
+
+        if (operation < 0 || operation > 2) {
+            msg(player, "&7Please enter a valid number for the operation! (0, 1 or 2)");
+            return false;
+        }
+
         int amount = -1;
         try {
-            amount = Integer.parseInt(args[1]);
+            amount = Integer.parseInt(args[2]);
         } catch (NumberFormatException e) {
             msg(player, "&7Please enter a valid number for the amount!");
             return false;
@@ -220,23 +241,43 @@ public class ItemMakerCommand implements CommandExecutor {
 
         NBTTagList modifierList = new NBTTagList();
 
-        if (tag.hasKeyOfType("AttributeModifiers", NBTTagList.class)) {
+        if (tag.hasKey("AttributeModifiers")) {
             modifierList = (NBTTagList) tag.get("AttributeModifiers");
         }
 
         NBTTagCompound attr = new NBTTagCompound();
         attr.setString("AttributeName", attributeName);
+        attr.setString("Name", attributeName);
         attr.setInt("Amount", amount);
         attr.setInt("Operation", 0);
         attr.setInt("UUIDMost", rand.nextInt(999999999));
         attr.setInt("UUIDLeast", rand.nextInt(999999999));
+        if (slot != null) {
+            attr.setString("Slot", slot);
+        }
+
+        modifierList.add(attr);
 
         tag.set("AttributeModifiers", modifierList);
 
+        System.out.println(tag.toString());
+
         item = ItemNBTUtil.setNBTTag(tag, item);
+
+        player.getInventory().setItemInMainHand(item);
 
         return true;
 
+    }
+
+    /**
+     * A reference to Bash :P
+     * 
+     * @param args
+     * @return
+     */
+    public String[] shift(String... args) {
+        return (args.length < 1) ? args : Arrays.copyOfRange(args, 1, args.length);
     }
 
 }

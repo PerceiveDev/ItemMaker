@@ -3,13 +3,11 @@ package com.perceivedev.itemmaker;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Locale;
 import java.util.logging.Logger;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.perceivedev.perceivecore.language.I18N;
-import com.perceivedev.perceivecore.language.MessageProvider.Category;
 
 public class ItemMaker extends JavaPlugin {
 
@@ -24,21 +22,19 @@ public class ItemMaker extends JavaPlugin {
 
         getCommand("itemmaker").setExecutor(new ItemMakerCommand(this));
 
-        Path savePath = getDataFolder().toPath();
+        Path output = getDataFolder().toPath().resolve("language");
 
-        if (Files.notExists(savePath)) {
+        if (Files.notExists(output)) {
             try {
-                Files.createDirectories(savePath);
+                Files.createDirectories(output);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
-        saveResource("Messages.properties", false);
+        I18N.copyDefaultFiles("language", output, false, getFile());
 
-        Locale locale = Locale.ENGLISH;
-
-        language = new I18N(locale, "", savePath, getClassLoader(), new Category("Messages"));
+        language = new I18N(this, "language");
 
         logger.info(versionText() + " enabled");
 
