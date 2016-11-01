@@ -33,8 +33,7 @@ import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagByte;
 import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagCompound;
 import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagInt;
 import com.perceivedev.perceivecore.nbt.NBTWrappers.NBTTagList;
-import com.perceivedev.perceivecore.util.ItemUtils;
-import com.perceivedev.perceivecore.util.TextUtils;
+import com.perceivedev.perceivecore.util.ItemFactory;
 
 /**
  * @author Rayzr
@@ -145,7 +144,8 @@ public class ItemMakerCommand implements CommandExecutor {
      */
     public boolean parseInput(String input) {
         input = input.toLowerCase();
-        return input.equals("yes") || input.equals("y") || input.equals("true") || input.equals("1") || input.equals("1b");
+        return input.equals("yes") || input.equals("y") || input.equals("true") || input.equals("1")
+                || input.equals("1b");
     }
 
     private ItemStack getHand(Player player) {
@@ -170,7 +170,8 @@ public class ItemMakerCommand implements CommandExecutor {
         return findAttribute(attributeName, -1, null, modifierList);
     }
 
-    private Optional<NBTTagCompound> findAttribute(String attributeName, int operation, String slot, NBTTagList modifierList) {
+    private Optional<NBTTagCompound> findAttribute(String attributeName, int operation, String slot,
+            NBTTagList modifierList) {
         // @formatter:off
         Optional<NBTTagCompound> tag2 = modifierList
                 .getList()
@@ -210,7 +211,7 @@ public class ItemMakerCommand implements CommandExecutor {
         }
 
         String name = colorize("&r" + concat(args, " "));
-        ItemUtils.setName(item, name);
+        item = ItemFactory.builder(item).setName(name).build();
 
         msg(player, plugin.tr("name.set", name));
 
@@ -488,7 +489,8 @@ public class ItemMakerCommand implements CommandExecutor {
 
         if (args.length < 2) {
             if (args.length > 0 && args[0].equalsIgnoreCase("list")) {
-                msg(player, plugin.tr("flags.list", Arrays.stream(ItemFlag.values()).map(flag -> flag.toString()).sorted().collect(Collectors.joining(", "))));
+                msg(player, plugin.tr("flags.list", Arrays.stream(ItemFlag.values()).map(flag -> flag.toString())
+                        .sorted().collect(Collectors.joining(", "))));
                 return true;
             }
             msg(player, plugin.tr("missing.args"));
@@ -509,13 +511,13 @@ public class ItemMakerCommand implements CommandExecutor {
         if (args.length == 1 && args[0].equalsIgnoreCase("all")) {
             flags = Arrays.asList(ItemFlag.values());
         } else {
-            flags = Arrays.asList(args).stream().filter(str -> {
+            flags = Arrays.asList(args).stream().map(str -> str.toUpperCase()).filter(str -> {
                 try {
-                    return ItemFlag.valueOf(TextUtils.enumFormat(str)) != null;
+                    return ItemFlag.valueOf(str) != null;
                 } catch (Exception e) {
                     return false;
                 }
-            }).map(str -> ItemFlag.valueOf(TextUtils.enumFormat(str))).collect(Collectors.toList());
+            }).map(str -> ItemFlag.valueOf(str)).collect(Collectors.toList());
         }
 
         String action = "";
@@ -533,7 +535,8 @@ public class ItemMakerCommand implements CommandExecutor {
 
         item.setItemMeta(im);
 
-        msg(player, plugin.tr("flags", action, flags.stream().map(flag -> flag.toString()).sorted().collect(Collectors.joining(", "))));
+        msg(player, plugin.tr("flags", action,
+                flags.stream().map(flag -> flag.toString()).sorted().collect(Collectors.joining(", "))));
 
         return true;
 
@@ -560,7 +563,8 @@ public class ItemMakerCommand implements CommandExecutor {
             return;
         }
 
-        p.getInventory().setItemInMainHand(ItemUtils.setLore(getHand(p), (List<String>) ctx.getSessionData("lore")));
+        p.getInventory().setItemInMainHand(
+                ItemFactory.builder(getHand(p)).setLore((List<String>) ctx.getSessionData("lore")).build());
         msg(p, plugin.tr("lore.set"));
 
     }
